@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres.todseoxweshsitseuxml:admin%40123@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?schema=public"
+  extensions = [pg_trgm, pgcrypto]
+}
+
+enum UserRole {
+  ADMIN
+  SALES
+  COUNSELOR
+  SUPPORT
+}
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  phone           String?
+  password        String
+  role            UserRole  @default(SALES)
+  avatar          String?
+  isActive        Boolean   @default(true)
+  lastLogin       DateTime?
+  resetToken      String?
+  resetTokenExpiry DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  assignedLeads   Lead[]    @relation("AssignedLeads")
+  notes           Note[]
+  interactions    Interaction[]
+  
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Lead {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  phone           String
+  role            String?   // Teacher, Principal, Coordinator, etc.
+  experience      String?   // 0-2 years, 3-5 years, etc.
+  goals           String?   // Career goals
+  interests       String[]  // Areas of interest
+  learningStyle   String?   // Learning style preference
+  budget          String?   // Budget range
+  international   String?   // International teaching interest
+  preferredContact String   @default("email") // email, phone, whatsapp
+  hearAboutUs     String?   // How they heard about us
+  planInterest    String?   // Monthly, Annual, Premium
+  quizAnswers     Json?     // AI counselor responses
+  aiScore         Int?      // 0-100 lead quality score
+  status          String    @default("new") // new, contacted, qualified, converted, lost
+  source          String    @default("website") // website, referral, ad, social
+  paymentStatus   String?   // pending, completed, failed, refunded
+  paymentId       String?   // Razorpay payment ID
+  orderId         String?   // Razorpay order ID
+  amount          Float?    // Payment amount
+  currency        String?   @default("INR")
+  paymentDate     DateTime? // When payment was completed
+  lastContacted   DateTime? // Last contact date
+  nextFollowUp    DateTime? // Next follow-up date
+  assignedToId    String?   // Assigned sales rep
+  membershipPlanId String?   // Selected membership plan
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  assignedTo      User?     @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  membershipPlan  MembershipPlan? @relation(fields: [membershipPlanId], references: [id])
+  notes           Note[]
+  interactions    Interaction[]
+  conversations   Conversation[]
+  
+  @@index([email])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([paymentId])
+  @@index([orderId])
+  @@index([assignedToId])
+  @@index([membershipPlanId])
+  @@map("leads")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  isPrivate Boolean  @default(false)
+  leadId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@index([leadId])
+  @@index([userId])
+  @@map("notes")
+}
+
+model Interaction {
+  id          String   @id @default(cuid())
+  type        String   // call, email, meeting, note, payment, etc.
+  content     String?  @db.Text
+  metadata    Json?    // Additional interaction data
+  leadId      String
+  userId      String
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@index([leadId])
+  @@index([userId])
+  @@index([type])
+  @@map("interactions")
+}
+
+model MembershipPlan {
+  id              String   @id @default(cuid())
+  name            String   // Monthly, Annual, Premium
+  slug            String   @unique // monthly, annual, premium
+  description     String?
+  priceMonthly    Float
+  priceAnnual     Float?
+  currency        String   @default("INR")
+  features        String[] // List of features
+  isActive        Boolean  @default(true)
+  stripePriceId   String?  // Stripe price ID for monthly
+  stripeAnnualPriceId String? // Stripe price ID for annual
+  razorpayPlanId  String?  // Razorpay plan ID
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  leads           Lead[]
+  
+  @@unique([name])
+  @@map("membership_plans")
+}
+
+// For storing AI chat conversations
+model Conversation {
+  id        String   @id @default(cuid())
+  leadId    String   @map("lead_id")
+  messages  Json     // Array of { role: 'user' | 'assistant', content: string }
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("conversations")
+}
+
+// For tracking scheduled tasks and reminders
+model ScheduledTask {
+  id          String   @id @default(cuid())
+  type        String   // email, notification, followup, etc.
+  scheduledAt DateTime // When to execute
+  data        Json     // Task data
+  status      String   @default("pending") // pending, processing, completed, failed
+  retryCount  Int      @default(0)
+  lastError   String?
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([type])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("scheduled_tasks")
+}
