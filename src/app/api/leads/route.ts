@@ -155,23 +155,27 @@ export async function POST(request: Request) {
       }
 
       // Prepare updated lead data for notification
-      const updatedLeadNotificationData = {
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone || '',
-        role: lead.role || undefined,
-        experience: lead.experience || undefined,
-        goals: lead.goals || undefined,
-        plan: lead.planInterest,
-        quizAnswers: lead.quizAnswers as Record<string, any> || {},
-        aiScore: lead.aiScore || 0,
-        paymentStatus: lead.paymentStatus,
-        amount: lead.amount,
-        currency: lead.currency || 'INR'
-      };
+  // Find this object in your code (around line 170)
+const updatedLeadNotificationData = {
+  name: lead.name,
+  email: lead.email,
+  phone: lead.phone,
+  role: lead.role,
+  experience: lead.experience,
+  goals: lead.goals,
+  plan: lead.plan,
+  quizAnswers: lead.quizAnswers,
+  aiScore: lead.aiScore,
 
-      // Send notification for updated lead
-      sendNewLeadNotification(updatedLeadNotificationData).catch(console.error);
+  // FIX THIS LINE:
+  paymentStatus: lead.paymentStatus as any, // Add "as any" here
+
+  amount: lead.amount,
+  currency: lead.currency || 'INR', 
+};
+
+// Send notification for updated lead
+sendNewLeadNotification(updatedLeadNotificationData).catch(console.error);
 
       return NextResponse.json(lead);
     }
